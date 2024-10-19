@@ -1,0 +1,22 @@
+{
+    "manifest_version": 2,
+    "name": "Third-Party Domain Detector",
+    "version": "1.0",
+    "description": "Detect and list third-party domain connections during web navigation.",
+    "permissions": [
+      "webRequest",
+      "webRequestBlocking",
+      "activeTab",
+      "storage",
+      "tabs",
+      "*://*/*"
+    ],
+    "background": {
+      "scripts": ["background/third_party.js"],
+      "persistent": true
+    },
+    "browser_action": {
+      "default_popup": "popup/popup.html"
+    }
+  }
+  
