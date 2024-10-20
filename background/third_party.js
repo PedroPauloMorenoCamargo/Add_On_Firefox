@@ -1,65 +1,197 @@
-let tabData = {}; // Store third-party domains per tab
+let tabData = {}; // Store data per tab
 let activeTabId = null;
 
 // Function to get the domain from a URL
 function getDomain(url) {
-    const urlObject = new URL(url);
-    return urlObject.hostname;
+  const urlObject = new URL(url);
+  return urlObject.hostname;
 }
 
-// Clear the domain list for a specific tab
-function clearDomains(tabId) {
-    if (tabData[tabId]) {
-        tabData[tabId].thirdPartyDomains.clear();
+// Clear the data for a specific tab by deleting its entry
+function clearTabData(tabId) {
+  if (tabData[tabId]) {
+    delete tabData[tabId];
+    console.log(`Cleared data for tab ${tabId}`);
+  }
+}
+
+// Function to reset cookies for the current tab (now handled during initialization)
+function resetCookieCounts(tabId) {
+  tabData[tabId].cookies = {
+    firstPartySession: 0,
+    firstPartyPersistent: 0,
+    thirdPartySession: 0,
+    thirdPartyPersistent: 0,
+  };
+  console.log(`Reset cookie counts for tab ${tabId}`);
+}
+
+// Function to categorize cookies into first-party/third-party and session/persistent
+function categorizeCookies(cookies, tabId, isThirdParty) {
+  console.log(`Categorizing ${cookies.length} cookies for tab ${tabId}`);
+  cookies.forEach((cookie) => {
+    // Create a unique identifier for the cookie
+    const cookieId = `${cookie.name}|${cookie.domain}|${cookie.path}|${cookie.secure}|${cookie.sameSite}`;
+
+    // Check if the cookie has already been counted
+    if (!tabData[tabId].uniqueCookies.has(cookieId)) {
+      tabData[tabId].uniqueCookies.add(cookieId);
+
+      const cookieType = isThirdParty ? 'thirdParty' : 'firstParty';
+
+      if (cookie.session || !cookie.expirationDate) {
+        tabData[tabId].cookies[`${cookieType}Session`] += 1;
+      } else {
+        tabData[tabId].cookies[`${cookieType}Persistent`] += 1;
+      }
     }
+  });
+
+  console.log(`Categorized Cookies for tab ${tabId}:`, tabData[tabId].cookies);
 }
 
-// Listener to capture network requests
-browser.webRequest.onBeforeRequest.addListener(
-    (details) => {
-        // Check if the request belongs to the active tab
-        if (details.tabId in tabData && details.tabId !== -1) {
-            browser.tabs.get(details.tabId, (tab) => {
-                if (tab) {
-                    const requestDomain = getDomain(details.url);
-                    const tabDomain = getDomain(tab.url);
+// Function to collect first-party cookies using the tab's URL and storeId
+async function collectFirstPartyCookies(tabId) {
+  try {
+    const tab = await browser.tabs.get(tabId);
+    const storeId = tab.cookieStoreId || '0'; // Default to '0' if undefined
 
-                    // Check if the request domain is different from the active tab's domain
-                    if (requestDomain !== tabDomain) {
-                        tabData[details.tabId].thirdPartyDomains.add(requestDomain); // Store third-party domain
-                    }
-                }
-            });
+    // Get cookies for the specific URL and storeId
+    const cookies = await browser.cookies.getAll({ url: tab.url, storeId });
+
+    console.log(`Collected ${cookies.length} first-party cookies for URL ${tab.url}`);
+
+    // Categorize cookies as first-party
+    categorizeCookies(cookies, tabId, false); // `false` indicates first-party cookies
+  } catch (error) {
+    console.error(`Error collecting first-party cookies for tab ${tabId}:`, error);
+  }
+}
+
+// Function to collect third-party cookies for a domain only once, using storeId
+async function collectThirdPartyCookiesForDomain(tabId, domain) {
+  try {
+    if (!tabData[tabId].collectedThirdPartyDomains.has(domain)) {
+      tabData[tabId].collectedThirdPartyDomains.add(domain);
+
+      const tab = await browser.tabs.get(tabId);
+      const storeId = tab.cookieStoreId || '0'; // Default to '0' if undefined
+
+      // Build a URL from the domain
+      const url = `https://${domain}/`;
+
+      // Get cookies for the specific URL and storeId
+      const cookies = await browser.cookies.getAll({ url, storeId });
+
+      console.log(`Collected ${cookies.length} third-party cookies for domain ${domain}`);
+
+      // Categorize cookies as third-party
+      categorizeCookies(cookies, tabId, true); // `true` indicates third-party cookies
+    }
+  } catch (error) {
+    console.error(`Error collecting third-party cookies for domain ${domain}:`, error);
+  }
+}
+
+// Listener to capture network requests and detect third-party domains
+browser.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.tabId !== -1) {
+      const tabId = details.tabId;
+      if (!(tabId in tabData)) {
+        tabData[tabId] = {
+          thirdPartyDomains: new Set(),
+          collectedThirdPartyDomains: new Set(),
+          cookies: {
+            firstPartySession: 0,
+            firstPartyPersistent: 0,
+            thirdPartySession: 0,
+            thirdPartyPersistent: 0,
+          },
+          uniqueCookies: new Set(),
+        };
+      }
+
+      browser.tabs.get(tabId).then((tab) => {
+        if (tab) {
+          const requestDomain = getDomain(details.url);
+          const tabDomain = getDomain(tab.url);
+
+          if (requestDomain !== tabDomain) {
+            if (!tabData[tabId].thirdPartyDomains.has(requestDomain)) {
+              tabData[tabId].thirdPartyDomains.add(requestDomain);
+              console.log(`Third-party domain detected: ${requestDomain}`);
+
+              // Collect third-party cookies for this domain
+              collectThirdPartyCookiesForDomain(tabId, requestDomain);
+            }
+          }
         }
-    },
-    { urls: ["<all_urls>"] }
+      }).catch(console.error);
+    }
+  },
+  { urls: ["<all_urls>"] },
+  []
 );
 
-// Update the active tab ID when the active tab changes
+// Listener for tab activation, updates activeTabId
 browser.tabs.onActivated.addListener((activeInfo) => {
-    activeTabId = activeInfo.tabId;
+  activeTabId = activeInfo.tabId;
 
-    // If the tab doesn't already have a domain set, initialize it
-    if (!(activeTabId in tabData)) {
-        tabData[activeTabId] = { thirdPartyDomains: new Set() };
-    }
+  // Initialize tab data if it doesn't exist
+  if (!(activeTabId in tabData)) {
+    tabData[activeTabId] = {
+      thirdPartyDomains: new Set(),
+      collectedThirdPartyDomains: new Set(),
+      cookies: {
+        firstPartySession: 0,
+        firstPartyPersistent: 0,
+        thirdPartySession: 0,
+        thirdPartyPersistent: 0,
+      },
+      uniqueCookies: new Set(),
+    };
+
+    // Collect first-party cookies for the newly activated tab
+    collectFirstPartyCookies(activeTabId);
+  }
+  // Do not reset or recollect cookies when switching back to a tab
 });
 
-// Clear third-party requests and update when the page is reloaded or navigates
+// Listener for tab updates (e.g., reloaded), deletes previous data and collects new cookies
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === "loading") {
-        clearDomains(tabId); // Clear third-party requests when reloading or navigating the tab
-    }
+  if (changeInfo.status === "loading") {
+    clearTabData(tabId);
+
+    // Initialize tab data after clearing
+    tabData[tabId] = {
+      thirdPartyDomains: new Set(),
+      collectedThirdPartyDomains: new Set(),
+      cookies: {
+        firstPartySession: 0,
+        firstPartyPersistent: 0,
+        thirdPartySession: 0,
+        thirdPartyPersistent: 0,
+      },
+      uniqueCookies: new Set(),
+    };
+
+    // Collect first-party cookies for the updated tab
+    collectFirstPartyCookies(tabId);
+  }
 });
 
-// Delete the data for a tab when it is closed
+// Listener for when a tab is closed, to delete its associated data
 browser.tabs.onRemoved.addListener((tabId) => {
-    delete tabData[tabId]; // Remove the stored domains for the closed tab
+  clearTabData(tabId);
 });
 
-// Listener for communication between popup and background script
+// Listener for communication between the popup and background script
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.command === "getThirdPartyDomains" && activeTabId in tabData) {
-        sendResponse({ domains: Array.from(tabData[activeTabId].thirdPartyDomains) });
-    }
+  if (message.command === "getTabData" && activeTabId in tabData) {
+    sendResponse({
+      domains: Array.from(tabData[activeTabId].thirdPartyDomains),
+      cookies: tabData[activeTabId].cookies,
+    });
+  }
 });
