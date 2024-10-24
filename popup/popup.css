@@ -44,8 +44,8 @@ pre {
 
 
 
-.cookie-list, .script-list, .storage-list,.script-list {
-    height: 150px; /* Lock the height for scrollable lists */
+.cookie-list, .scripts-list, .storage-list {
+    height: 100px; /* Lock the height for scrollable lists */
     width: 100%; /* Set width to 100% of the container */
     overflow-y: auto; /* Allow scrolling if content exceeds the height */
     border: 1px solid #ccc;
