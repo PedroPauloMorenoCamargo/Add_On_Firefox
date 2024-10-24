@@ -12,7 +12,6 @@ body {
     overflow-wrap: break-word;
 }
 
-
 .card {
     background-color: #507d99;
     padding: 8px;
@@ -144,4 +143,33 @@ li {
     box-sizing: border-box;
     white-space: normal; /* Allow text to wrap and preserve white spaces */
     max-width: 100%; /* Ensure text doesn't exceed container width */
+}
+
+#privacy-score {
+    font-size: 24px;
+    font-weight: bold;
+    color: #00ff00;
+    
+    display: flex;
+    justify-content: center;
+}
+/* Hide the dropdown panel initially by collapsing it */
+#privacy-score-container {
+    padding: 10px;
+    background-color: #3a6b92;
+    border-radius: 5px;
+    height: 0; /* Collapse height to 0 initially */
+    opacity: 0; /* Hide content initially */
+    overflow-y: hidden; /* Prevent content from being visible when closed */
+    transition: height 0.3s ease, opacity 0.3s ease; /* Smooth transition for height and opacity */
+    max-height: 200px; /* Set a reasonable max-height for scrolling */
+    font-size: 12px;
+    color: #ffffff;
+}
+
+/* Open the dropdown on clicking the button */
+#privacy-score-btn.active + #privacy-score-container {
+    height: 200px; /* Set height to max-height value when opened */
+    opacity: 1; /* Make it visible */
+    overflow-y: auto; /* Enable scrolling when the panel is opened */
 }

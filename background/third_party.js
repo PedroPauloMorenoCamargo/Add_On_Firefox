@@ -2,7 +2,8 @@ let tabData = {}; // Store third-party domains per tab
 let tabLoading = {}; // Track which tabs are currently loading
 let activeTabId = null;
 let injectedScripts = {}; // Store injected scripts data per tab
-
+let tabScores = {}; // Store privacy scores for each tab
+let intervalId;
 // Dictionary to store cookies for each tab
 let tabCookies = {};
 
@@ -31,10 +32,6 @@ function clearInjectedScriptsForTab(tabId) {
     // Clear from local storage
     browser.storage.local.set({ [`injectedScripts_${tabId}`]: [] });
 
-    // Notify the popup to refresh the UI with zero scripts
-    browser.runtime.sendMessage({
-        command: "refreshData"
-    });
 }
 
 // Function to get the domain from a URL
@@ -74,36 +71,70 @@ browser.cookies.onChanged.addListener((changeInfo) => {
         }
 
         classifyCookie(changeInfo.cookie, tabDomain, activeTab.id);
-
-        browser.runtime.sendMessage({
-            command: "cookiesUpdated"
-        });
     });
 });
+
+
+function calculatePrivacyScore(tabId) {
+    let score = 100;
+
+    // Criterion 1: Third-party domains (max 25 points)
+    const thirdPartyDomains = tabData[tabId]?.thirdPartyDomains || new Set();
+    score -= Math.min(10, thirdPartyDomains.size) * 3; // Each third-party domain reduces 3 points
+
+    // Criterion 2: Cookies (max 30 points)
+    const cookies = tabCookies[tabId];
+    let cookieImpact = 0;
+    if (cookies) {
+        const thirdPartySessionCount = cookies.thirdPartySession.length;
+        const thirdPartyPersistentCount = cookies.thirdPartyPersistent.length;
+        const firstPartyPersistentCount = cookies.firstPartyPersistent.length;
+
+        // Each third-party session cookie reduces 3 points
+        cookieImpact += Math.min(10, thirdPartySessionCount) * 3;
+        // Each third-party persistent cookie reduces 5 points
+        cookieImpact += Math.min(10, thirdPartyPersistentCount) * 5;
+        // Each first-party persistent cookie reduces 2 points
+        cookieImpact += Math.min(10, firstPartyPersistentCount) * 2;
+    }
+    score -= cookieImpact;
+
+    // Criterion 3: Injected scripts (max 20 points)
+    const scripts = injectedScripts[tabId] || [];
+    score -= Math.min(10, scripts.length) * 2; // Each injected script reduces 2 points
+
+    // Criterion 4: Local Storage (max 20 points)
+    return new Promise((resolve, reject) => {
+        browser.runtime.sendMessage({ command: "getLocalStorage" }, (localStorageData) => {
+            let storageImpact = 0;
+            if (localStorageData && Object.keys(localStorageData).length > 0) {
+                storageImpact += Math.floor(Object.keys(localStorageData).length / 3) * 5; // Every 3 local storage items reduce 5 points
+            }
+            score -= storageImpact;
+
+            score = Math.max(0, score); // Ensure score is not negative
+            resolve(score);
+        });
+    });
+}
+
+
+
 
 // Function to handle tab switching
 function handleTabSwitch(newTabId) {
     activeTabId = newTabId;
 
     // Load saved scripts and cookies when switching to a new tab
-    browser.storage.local.get([`injectedScripts_${newTabId}`, newTabId.toString()]).then((result) => {
+    browser.storage.local.get([`injectedScripts_${newTabId}`, newTabId.toString(), `privacyScore_${newTabId}`]).then((result) => {
         if (result[newTabId]) {
             tabCookies[newTabId] = result[newTabId];
         } else {
             resetCookiesForTab(newTabId);
         }
 
-        // Clear previous scripts and refresh for the new tab
-        injectedScripts[newTabId] = [];
-
-        if (result[`injectedScripts_${newTabId}`]) {
-            injectedScripts[newTabId] = result[`injectedScripts_${newTabId}`];
-        }
-
-        // Notify the popup to refresh with the new data
-        browser.runtime.sendMessage({
-            command: "refreshData"
-        });
+        injectedScripts[newTabId] = result[`injectedScripts_${newTabId}`] || [];
+        tabScores[newTabId] = result[`privacyScore_${newTabId}`] || calculatePrivacyScore(newTabId);
     });
 }
 
@@ -113,11 +144,11 @@ browser.tabs.onActivated.addListener((activeInfo) => {
 });
 
 // Listener for when a tab starts loading or is updated
-browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === "loading") {
         tabLoading[tabId] = true;
 
-        // Clear injected scripts when the tab starts loading (on refresh)
+        // Clear injected scripts when the tab starts loading
         clearInjectedScriptsForTab(tabId);
 
         // Restore cookies from storage for the updated tab
@@ -130,16 +161,155 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         });
     } else if (changeInfo.status === "complete") {
         tabLoading[tabId] = false;
-
-        // Set the current active tab when loading completes
         if (tabId === activeTabId) {
             handleTabSwitch(tabId);
         }
-
-        // Start monitoring for script injections after page is fully loaded
         detectScriptInjection(tabId);
     }
 });
+
+
+
+// Detect and log script injection on the current tab
+function detectScriptInjection(tabId) {
+    clearInjectedScriptsForTab(tabId);
+    browser.tabs.executeScript(tabId, {
+        code: `
+            (function() {
+                function monitorScriptInjection() {
+                    const observedScripts = new Set();
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach(mutation => {
+                            if (mutation.type === 'childList') {
+                                mutation.addedNodes.forEach(node => {
+                                    if (node.tagName && node.tagName.toLowerCase() === 'script') {
+                                        let scriptSrc = node.src || 'inline script';
+                                        if (!observedScripts.has(scriptSrc)) {
+                                            observedScripts.add(scriptSrc);
+                                            browser.runtime.sendMessage({
+                                                command: 'scriptInjected',
+                                                scriptSource: scriptSrc,
+                                                scriptContent: node.src ? 'External Script: ' + scriptSrc : node.textContent
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    });
+                    observer.observe(document, {
+                        childList: true,
+                        subtree: true
+                    });
+                }
+                monitorScriptInjection();
+            })();
+        `
+    });
+}
+
+// Listener for injected script detection
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.command === 'scriptInjected') {
+        const tabId = sender.tab.id;
+
+        if (!injectedScripts[tabId]) {
+            injectedScripts[tabId] = [];
+        }
+
+        injectedScripts[tabId].push({
+            domain: getDomain(sender.tab.url),
+            content: message.scriptContent || "External script - No inline content"
+        });
+
+        browser.storage.local.set({ [`injectedScripts_${tabId}`]: injectedScripts[tabId] });
+    }
+
+    if (message.command === "getInjectedScripts") {
+        sendResponse({ scripts: injectedScripts[activeTabId] || [] });
+    }
+
+    if (message.command === "deleteInjectedScripts") {
+        clearInjectedScriptsForTab(activeTabId);
+        sendResponse({ status: "success" });
+    }
+
+    if (message.command === "getThirdPartyDomains") {
+        sendResponse({ domains: Array.from(tabData[activeTabId]?.thirdPartyDomains || []) });
+    }
+
+    if (message.command === "getCookies") {
+        sendResponse(tabCookies[activeTabId] || {
+            firstPartySession: [],
+            firstPartyPersistent: [],
+            thirdPartySession: [],
+            thirdPartyPersistent: []
+        });
+    }
+    if (message.command === 'getPrivacyScore') {
+        let tabId = null;
+        
+        // First, check if sender.tab exists
+        if (sender.tab) {
+            tabId = sender.tab.id;
+            console.log("Sender tab ID:", tabId);
+        } else {
+            // Fallback to query for the active tab
+            console.log("No sender.tab, querying active tab...");
+            browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+                if (tabs.length > 0) {
+                    tabId = tabs[0].id;
+                    console.log("Queried active tab ID:", tabId);
+
+                    // Now that we have the tabId, calculate the privacy score
+                    calculatePrivacyScore(tabId).then(score => {
+                        console.log("Calculated score:", score);
+                        sendResponse({ score: score });
+                    }).catch(error => {
+                        console.error("Error calculating privacy score:", error);
+                        sendResponse({ score: 0 });
+                    });
+                } else {
+                    console.error("No active tab found");
+                    sendResponse({ score: 0 });
+                }
+            }).catch(error => {
+                console.error("Error querying active tab:", error);
+                sendResponse({ score: 0 });
+            });
+
+            // Indicate that the response is asynchronous
+            return true;
+        }
+
+        // If we already have the tabId from sender.tab
+        if (tabId) {
+            console.log("Using tab ID:", tabId);
+            calculatePrivacyScore(tabId).then(score => {
+                console.log("Calculated score:", score);
+                sendResponse({ score: score });
+            }).catch(error => {
+                console.error("Error calculating privacy score:", error);
+                sendResponse({ score: 0 });
+            });
+
+            // Indicate that the response is asynchronous
+            return true;
+        }
+    }
+    if (message.command === "getLocalStorage") {
+        browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+            const activeTabId = tabs[0].id;
+            browser.tabs.executeScript(activeTabId, {
+                code: 'Object.entries(localStorage).reduce((obj, [key, value]) => { obj[key] = value; return obj; }, {});'
+            }).then((results) => {
+                sendResponse(results[0]);
+            });
+        });
+        return true;
+    }
+});
+
 
 // Detect third-party requests and store third-party domains
 browser.webRequest.onBeforeRequest.addListener(
@@ -159,132 +329,3 @@ browser.webRequest.onBeforeRequest.addListener(
     },
     { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] }
 );
-
-// Delete the data for a tab when it is closed
-browser.tabs.onRemoved.addListener((tabId) => {
-    delete tabData[tabId];
-    delete tabCookies[tabId];
-    delete tabLoading[tabId];
-    delete injectedScripts[tabId];
-
-    // Also remove from storage
-    browser.storage.local.remove(tabId.toString());
-    browser.storage.local.remove(`injectedScripts_${tabId}`);
-});
-
-// Detect and log script injection on the current tab
-function detectScriptInjection(tabId) {
-    // Clear previous scripts when detecting new ones
-    clearInjectedScriptsForTab(tabId);
-
-    browser.tabs.executeScript(tabId, {
-        code: `
-            (function() {
-                // Function to monitor and detect new scripts being injected into the page
-                function monitorScriptInjection() {
-                    const observedScripts = new Set();
-
-                    // Use MutationObserver to detect new script elements
-                    const observer = new MutationObserver((mutations) => {
-                        mutations.forEach(mutation => {
-                            if (mutation.type === 'childList') {
-                                mutation.addedNodes.forEach(node => {
-                                    if (node.tagName && node.tagName.toLowerCase() === 'script') {
-                                        let scriptSrc = node.src || 'inline script';
-
-                                        // Log the script source or content
-                                        if (node.src) {
-                                            console.warn('External Script injected:', node.src);
-                                        } else {
-                                            console.warn('Inline Script injected:', node.textContent);
-                                        }
-
-                                        // Ensure we only handle the script once
-                                        if (!observedScripts.has(scriptSrc)) {
-                                            observedScripts.add(scriptSrc);
-
-                                            // Send a message back to the background script about the injected script
-                                            browser.runtime.sendMessage({
-                                                command: 'scriptInjected',
-                                                scriptSource: scriptSrc,
-                                                scriptContent: node.src ? 'External Script: ' + scriptSrc : node.textContent  // Send content for inline scripts
-                                            });
-                                        }
-                                    }
-                                });
-                            }
-                        });
-                    });
-
-                    // Start observing the document for added script tags
-                    observer.observe(document, {
-                        childList: true,
-                        subtree: true
-                    });
-                }
-
-                // Start monitoring the page for script injections
-                monitorScriptInjection();
-            })();
-        `
-    }).then(() => {
-        console.log(`Started script injection detection on tab ${tabId}`);
-    }).catch((error) => {
-        console.error('Error injecting script detection code:', error);
-    });
-}
-
-// Listener for injected script detection
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.command === 'scriptInjected') {
-        const tabId = sender.tab.id;
-
-        if (!injectedScripts[tabId]) {
-            injectedScripts[tabId] = [];
-        }
-
-        // Collect injected script details
-        injectedScripts[tabId].push({
-            domain: getDomain(sender.tab.url),
-            content: message.scriptContent || "External script - No inline content"
-        });
-
-        // Save scripts to local storage
-        browser.storage.local.set({ [`injectedScripts_${tabId}`]: injectedScripts[tabId] });
-    }
-
-    if (message.command === "getInjectedScripts") {
-        sendResponse({ scripts: injectedScripts[activeTabId] || [] });
-    }
-
-    if (message.command === "deleteInjectedScripts") {
-        // Clear injected scripts for the current tab
-        clearInjectedScriptsForTab(activeTabId);
-        sendResponse({ status: "success" });
-    }
-
-    if (message.command === "getThirdPartyDomains") {
-        sendResponse({ domains: Array.from(tabData[activeTabId]?.thirdPartyDomains || []) });
-    }
-
-    if (message.command === "getCookies") {
-        sendResponse(tabCookies[activeTabId] || {
-            firstPartySession: [],
-            firstPartyPersistent: [],
-            thirdPartySession: [],
-            thirdPartyPersistent: []
-        });
-    }
-
-    if (message.command === "getLocalStorage") {
-        browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-            const activeTabId = tabs[0].id;
-            browser.tabs.executeScript(activeTabId, {
-                code: 'Object.entries(localStorage).reduce((obj, [key, value]) => { obj[key] = value; return obj; }, {});'
-            }).then((results) => {
-                sendResponse(results[0]); // The result will be an object containing key-value pairs from localStorage
-            });
-        });
-        return true; // Indicate that the response will be sent asynchronously
-    }
-});

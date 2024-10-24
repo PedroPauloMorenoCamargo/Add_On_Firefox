@@ -28,16 +28,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (response && response.scripts.length > 0) {
                 response.scripts.forEach((script) => {
-                    // Create a div for the script content, similar to cookies and localStorage
                     const scriptDetail = document.createElement("div");
                     scriptDetail.className = "script-details card"; // Adding card class for styling
-
-                    // Add script content with <pre> but ensure no overflow
                     scriptDetail.innerHTML = `<span>Script Content:</span><br><pre>${script.content}</pre>`;
-                    
                     scriptList.appendChild(scriptDetail); // Append script content as card
                 });
-
                 scriptCount.textContent = response.scripts.length;
             } else {
                 const listItem = document.createElement("li");
@@ -70,6 +65,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
             populateStorageList("storage-local-list", localStorageKeys, localStorageValues, "storage-local-count", localStorageKeys.length);
         });
+
+        // Fetch the privacy score and display it
+    // Fetch the privacy score and display it
+    browser.runtime.sendMessage({ command: "getPrivacyScore" }, (response) => {
+        if (response) {
+            const scoreElement = document.getElementById("privacy-score");
+            if (response.score !== undefined) {
+                scoreElement.textContent = `Score:${response.score}/100`;
+
+                // Update the color based on score
+                if (response.score < 50) {
+                    scoreElement.style.color = "red";
+                } else if (response.score >= 50 && response.score <= 70) {
+                    scoreElement.style.color = "yellow";
+                } else {
+                    scoreElement.style.color = "green";
+                }
+            }
+        } else {
+            console.error("Error fetching privacy score.");
+        }
+        });
     }
 
     function populateCookieList(elementId, cookies, countElementId, count) {
@@ -77,7 +94,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const countElement = document.getElementById(countElementId);
 
         countElement.textContent = `(${count})`;
-
         listElement.innerHTML = "";
 
         cookies.forEach((cookie) => {
@@ -93,7 +109,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const countElement = document.getElementById(countElementId);
 
         countElement.textContent = `(${count})`;
-
         listElement.innerHTML = "";
 
         keys.forEach((key, index) => {
@@ -108,8 +123,6 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function () {
             const panel = this.nextElementSibling;
             this.classList.toggle('active');
-            
-            // If panel is currently hidden, display it
             if (panel.style.display === "none" || panel.style.display === "") {
                 panel.style.display = "block";
                 panel.style.maxHeight = panel.scrollHeight + "px"; // Allow it to expand
@@ -122,11 +135,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    fetchData();
-
-    browser.runtime.onMessage.addListener((message) => {
-        if (message.command === "cookiesUpdated") {
-            fetchData();
-        }
-    });
+    fetchData(); // Initial fetch
+    setInterval(fetchData, 250); // Fetch every 1 second
 });
