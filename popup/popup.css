@@ -173,3 +173,10 @@ li {
     opacity: 1; /* Make it visible */
     overflow-y: auto; /* Enable scrolling when the panel is opened */
 }
+
+/* Class to add bullet points */
+.bullet-list {
+    list-style-type: disc;
+    margin-left: 20px; /* Add some indentation for the bullet points */
+    padding-left: 20px;
+}

@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "Third-Party Domain Detector",
+  "name": "Beast Security",
   "version": "1.0",
-  "description": "Detect and list third-party domain connections during web navigation.",
+  "description": "This extension will help you to secure your browser navigation.",
   "permissions": [
     "webRequest",
     "webRequestBlocking",
@@ -28,7 +28,11 @@
     "persistent": true
   },
   "browser_action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+
+    "default_icon": {
+      "128": "img/beast.png"
+    }
   }
 }
 

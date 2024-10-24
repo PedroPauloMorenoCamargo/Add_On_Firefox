@@ -8,6 +8,7 @@
 </head>
 <body>
   <!-- Privacy Score Section -->
+
   <h1><span id="privacy-score">Calculating...</span></h1>
   <button class="dropdown-btn" id="privacy-score-btn">Show Privacy Score Breakdown</button>
   <div class="dropdown-panel" id="privacy-score-container">
@@ -22,13 +23,13 @@
           <strong>Risco de Privacidade:</strong> Domínios de terceiros são usados frequentemente para rastreamento de usuários e exibição de anúncios. Conexões de terceiros podem transferir informações pessoais para esses domínios, o que compromete a privacidade do usuário.
           <p></p>
           <strong>Metodologia:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Começa com 30 pontos.</li>
               <li>Para cada domínio de terceira parte detectado, subtraímos 3 pontos.</li>
               <li>Se mais de 10 domínios forem detectados, a pontuação será zerada.</li>
             </ul>
           <strong>Exemplo:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Para cada domínio, subtraímos 3 pontos.</li>
               <li>Se forem detectados 10 domínios, a pontuação será 0.</li>
             </ul>
@@ -39,7 +40,7 @@
         <strong>Risco de Privacidade:</strong> Cookies são usados para armazenar informações sobre o usuário. Cookies de terceira parte e persistentes são mais invasivos e permitem rastreamento contínuo.
           <p></p>
         <strong>Metodologia:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Começa com 30 pontos.</li>
               <li>Cookies de primeira parte de sessão não afetam a pontuação.</li>
               <li>Para cada cookie de terceira parte, subtraímos 3 pontos.</li>
@@ -47,7 +48,7 @@
               <li>Cookies de terceira parte e persistentes subtraem 5 pontos.</li>
             </ul>
           <strong>Exemplo:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>2 cookies de terceira parte subtraem 6 pontos.</li>
               <li>2 cookies de terceira parte e persistentes subtraem 10 pontos.</li>
               <li>2 cookies de primeira parte e persistentes subtraem 4 pontos.</li>
@@ -58,12 +59,12 @@
           <strong>Risco de Privacidade:</strong> O armazenamento local (localStorage) permite que sites armazenem dados de forma persistente no navegador do usuário, o que pode ser usado para rastreamento.
           <p></p>  
           <strong>Metodologia:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Começa com 20 pontos.</li>
               <li>Para cada 3 itens armazenados no localStorage, subtraímos 5 pontos.</li>
             </ul>
           <strong>Exemplo:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Se o localStorage contém 3 itens, subtraímos 5 pontos.</li>
               <li>Se contém 6 itens, subtraímos 10 pontos.</li>
             </ul>
@@ -71,16 +72,16 @@
 
         <strong>4. Scripts Injetados (20 pontos)</strong>
             <p></p>
-          <strong>Risco de Privacidade:</strong> Scripts injetados em uma página podem comprometer a privacidade, especialmente se forem carregados de terceiros.
+          <strong>Risco de Privacidade:</strong> Scripts injetados em uma página podem comprometer a privacidade e facilitar ataques como hijaking e hooking.
           <p></p>
           <strong>Metodologia:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Começa com 20 pontos.</li>
               <li>Para cada script injetado, subtraímos 2 pontos.</li>
               <li>Se mais de 10 scripts forem detectados, a pontuação será zerada.</li>
             </ul>
             <strong>Exemplo:</strong>
-            <ul>
+            <ul class="bullet-list">
               <li>Se forem detectados 5 scripts, subtraímos 10 pontos.</li>
               <li>Se forem detectados 12 scripts, a pontuação será 0.</li>
             </ul>
