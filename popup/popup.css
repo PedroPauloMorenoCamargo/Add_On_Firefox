@@ -1,22 +1,147 @@
 body {
     font-family: Arial, sans-serif;
+    background-color: #1e3d59;
+    color: #ffffff;
     padding: 10px;
+    height: 350px; /* Lock the height to a fixed pixel size */
+    width: 300px;  /* Lock the width to a fixed pixel size */
+    overflow-y: auto; /* Allow scrolling if content exceeds height */
+    box-sizing: border-box; /* Ensure padding is included in total size */
+    margin: 0;
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
 }
-h1, h2 {
-    font-size: 18px;
+
+
+.card {
+    background-color: #507d99;
+    padding: 8px;
     margin-bottom: 10px;
+    border-radius: 4px;
+    color: #ffffff;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal; /* Ensure long text wraps and breaks lines */
 }
+
+.script-details {
+    background-color: #507d99;
+    padding: 8px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    color: #ffffff;
+    word-wrap: break-word;
+    overflow-wrap: break-word; /* Break long URLs */
+    white-space: normal; /* Ensure long text wraps inside the container */
+    max-width: 100%; /* Ensure text doesn't exceed container width */
+}
+
+pre {
+    white-space: pre-wrap; /* Ensure that pre content wraps */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+
+
+.cookie-list, .script-list, .storage-list {
+    height: 150px; /* Lock the height for scrollable lists */
+    width: 100%; /* Set width to 100% of the container */
+    overflow-y: auto; /* Allow scrolling if content exceeds the height */
+    border: 1px solid #ccc;
+    background-color: #295270;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    color: #ffffff;
+    box-sizing: border-box; /* Ensure padding is included in width */
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    white-space: normal; /* Break long lines into multiple lines */
+}
+
+/* Ensure no extra space from the headers and lists */
+h1 {
+    font-size: 18px;
+    margin: 0 0 10px 0;
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
 ul {
     list-style-type: none;
     padding-left: 0;
+    margin: 0;
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
-#domain-list, #storage-list, #canvas-list,#cookie-list {
-    max-height: 150px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 20px;
-}
+
+/* List items styling */
 li {
     margin: 5px 0;
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Dropdown buttons and panel */
+.dropdown-btn {
+    background-color: #295270;
+    border: none;
+    padding: 10px;
+    font-size: 16px;
+    color: #ffffff;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-sizing: border-box; /* Ensure padding doesn't overflow */
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+.dropdown-btn:after {
+    content: '\25bc'; /* Downward arrow */
+    float: right;
+    color: #ffffff;
+}
+
+.dropdown-btn.active:after {
+    content: '\25b2'; /* Upward arrow when active */
+}
+
+.dropdown-panel {
+    padding: 10px;
+    background-color: #3a6b92;
+    display: none; /* Hidden by default */
+    border-radius: 5px;
+    max-height: 0; /* Collapsed by default */
+    overflow-y: auto; /* Enable scrolling when content exceeds max height */
+    transition: max-height 0.2s ease-out; /* Smooth transition for height change */
+    box-sizing: border-box;
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word;
+    white-space: normal; /* Allow text to wrap and break lines */
+    max-width: 100%; /* Ensure text doesn't exceed container width */
+}
+
+/* Adjust widths and heights of detailed elements */
+.script-details, .cookie-details, .storage-details {
+    background-color: #507d99;
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    color: #ffffff;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all; /* Break words when necessary to fit the container */
+    width: 100%;
+    box-sizing: border-box;
+    white-space: normal; /* Allow text to wrap and preserve white spaces */
+    max-width: 100%; /* Ensure text doesn't exceed container width */
 }

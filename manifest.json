@@ -10,7 +10,18 @@
     "storage",
     "tabs",
     "cookies",
-    "*://*/*"
+    "*://*/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
   ],
   "background": {
     "scripts": ["background/third_party.js"],
@@ -20,3 +31,4 @@
     "default_popup": "popup/popup.html"
   }
 }
+

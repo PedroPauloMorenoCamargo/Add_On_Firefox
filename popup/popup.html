@@ -3,12 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Third-Party Domains</title>
+  <title>Third-Party Domains, Cookies, and Local Storage</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>Third-Party Domains</h1>
-  <ul id="domain-list"></ul>
+  <h1>Third-Party Domains (<span id="third-party-count">0</span>)</h1>
+  <button class="dropdown-btn" id="third-party-domains-btn">Show Third-Party Domains</button>
+  <div class="dropdown-panel" id="third-party-container">
+    <ul id="domain-list"></ul>
+  </div>
+
+  <h1>Injected Scripts (<span id="script-count">0</span>)</h1>
+  <button class="dropdown-btn" id="scripts-btn">Show Injected Scripts</button>
+  <div class="dropdown-panel" id="scripts-container">
+    <ul id="scripts-list"></ul>
+  </div>
+
+  <h1>Cookies</h1>
+  <button class="dropdown-btn" id="first-party-session-btn">First-Party Session Cookies <span id="first-party-session-count">(0)</span></button>
+  <div class="dropdown-panel cookie-list" id="first-party-session-list"></div>
+
+  <button class="dropdown-btn" id="first-party-persistent-btn">First-Party Persistent Cookies <span id="first-party-persistent-count">(0)</span></button>
+  <div class="dropdown-panel cookie-list" id="first-party-persistent-list"></div>
+
+  <button class="dropdown-btn" id="third-party-session-btn">Third-Party Session Cookies <span id="third-party-session-count">(0)</span></button>
+  <div class="dropdown-panel cookie-list" id="third-party-session-list"></div>
+
+  <button class="dropdown-btn" id="third-party-persistent-btn">Third-Party Persistent Cookies <span id="third-party-persistent-count">(0)</span></button>
+  <div class="dropdown-panel cookie-list" id="third-party-persistent-list"></div>
+
+  <h1>Local Storage (<span id="storage-local-count">0</span>)</h1>
+  <button class="dropdown-btn" id="local-storage-btn">Show Local Storage</button>
+  <div class="dropdown-panel storage-list" id="storage-local-list"></div>
+
   <script src="popup.js"></script>
 </body>
 </html>
