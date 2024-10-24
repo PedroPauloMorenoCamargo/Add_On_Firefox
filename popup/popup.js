@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (response && response.scripts.length > 0) {
                 response.scripts.forEach((script) => {
                     const scriptDetail = document.createElement("div");
-                    scriptDetail.className = "script-details card"; // Adding card class for styling
+                    scriptDetail.className = "cookie-details card"; // Adding card class for styling
                     scriptDetail.innerHTML = `<span>Script Content:</span><br><pre>${script.content}</pre>`;
                     scriptList.appendChild(scriptDetail); // Append script content as card
                 });
