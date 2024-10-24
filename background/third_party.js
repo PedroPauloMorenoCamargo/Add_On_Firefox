@@ -170,23 +170,30 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 
 
-// Detect and log script injection on the current tab
 function detectScriptInjection(tabId) {
-    clearInjectedScriptsForTab(tabId);
+    clearInjectedScriptsForTab(tabId); // Clear previously injected scripts for this tab
+    console.log(`Detecting script injection for tab ${tabId}`);
+    
     browser.tabs.executeScript(tabId, {
         code: `
             (function() {
+                console.log('Script injection monitoring started.');
+                
                 function monitorScriptInjection() {
                     const observedScripts = new Set();
                     const observer = new MutationObserver((mutations) => {
+                        console.log('Mutations detected:', mutations); // Log all mutations
+                        
                         mutations.forEach(mutation => {
                             if (mutation.type === 'childList') {
                                 mutation.addedNodes.forEach(node => {
                                     if (node.tagName && node.tagName.toLowerCase() === 'script') {
                                         let scriptSrc = node.src || 'inline script';
+                                        console.log('Script detected:', scriptSrc); // Log the detected script
+
                                         if (!observedScripts.has(scriptSrc)) {
                                             observedScripts.add(scriptSrc);
-                                            browser.runtime.sendMessage({
+                                            chrome.runtime.sendMessage({
                                                 command: 'scriptInjected',
                                                 scriptSource: scriptSrc,
                                                 scriptContent: node.src ? 'External Script: ' + scriptSrc : node.textContent
@@ -197,18 +204,19 @@ function detectScriptInjection(tabId) {
                             }
                         });
                     });
-                    observer.observe(document, {
-                        childList: true,
-                        subtree: true
-                    });
+                    observer.observe(document, { childList: true, subtree: true });
                 }
                 monitorScriptInjection();
             })();
         `
+    }).then(() => {
+        console.log(`Started script injection detection on tab ${tabId}`);
+    }).catch((error) => {
+        console.error('Error injecting script detection code:', error);
     });
 }
 
-// Listener for injected script detection
+
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.command === 'scriptInjected') {
         const tabId = sender.tab.id;
@@ -222,10 +230,20 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             content: message.scriptContent || "External script - No inline content"
         });
 
-        browser.storage.local.set({ [`injectedScripts_${tabId}`]: injectedScripts[tabId] });
+        console.log(`Storing script in tab ${tabId}:`, injectedScripts[tabId]);
+
+        // Save the detected scripts in browser storage
+        browser.storage.local.set({ [`injectedScripts_${tabId}`]: injectedScripts[tabId] })
+            .then(() => {
+                console.log(`Injected scripts for tab ${tabId} saved to storage`);
+            })
+            .catch(error => {
+                console.error(`Failed to save injected scripts for tab ${tabId}:`, error);
+            });
     }
 
     if (message.command === "getInjectedScripts") {
+        console.log(`Returning scripts for tab ${activeTabId}:`, injectedScripts[activeTabId]);
         sendResponse({ scripts: injectedScripts[activeTabId] || [] });
     }
 
@@ -252,18 +270,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // First, check if sender.tab exists
         if (sender.tab) {
             tabId = sender.tab.id;
-            console.log("Sender tab ID:", tabId);
         } else {
             // Fallback to query for the active tab
-            console.log("No sender.tab, querying active tab...");
             browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
                 if (tabs.length > 0) {
                     tabId = tabs[0].id;
-                    console.log("Queried active tab ID:", tabId);
 
                     // Now that we have the tabId, calculate the privacy score
                     calculatePrivacyScore(tabId).then(score => {
-                        console.log("Calculated score:", score);
                         sendResponse({ score: score });
                     }).catch(error => {
                         console.error("Error calculating privacy score:", error);
@@ -284,7 +298,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // If we already have the tabId from sender.tab
         if (tabId) {
-            console.log("Using tab ID:", tabId);
             calculatePrivacyScore(tabId).then(score => {
                 console.log("Calculated score:", score);
                 sendResponse({ score: score });
